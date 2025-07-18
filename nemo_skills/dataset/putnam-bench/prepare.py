@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Preprocessing adapted from https://github.com/trishullab/PutnamBench/blob/dc91ed7/lean4/scripts/extract_to_json.py
-"""
-
-import argparse
 import json
 import os
 import re
@@ -36,7 +31,7 @@ informal_prefix_match = re.compile(informal_prefix_regex)
 header_regex = r"^(?:import|open|def|abbrev|noncomputable)\s+.*(?:\n(?:\s*\|.+|[ \t]+.+))*"
 header_regex_match = re.compile(header_regex, re.MULTILINE)
 
-def extract_lean(filename):
+def extract_theorem(filename):
     with open(filename, "r") as f:
         text = f.read()
     
@@ -52,15 +47,9 @@ def extract_lean(filename):
     informal_prefix = informal_prefixes[0]
     informal_statement = informal_prefix.replace("/--","").replace("-/","").strip()
 
-    theorem={"name": thm_name, "formal_statement": full_thm, "informal_prefix": informal_prefix, "informal_statement": informal_statement,"header": header}
+    theorem={"name": thm_name, "formal_statement": full_thm, "informal_prefix": informal_prefix, "problem": informal_statement,"header": header}
 
-    return [theorem]
-
-def extract_all_lean(folder, theorems = []):
-    for filename in os.listdir(folder):
-        if filename.endswith(".lean"):
-            theorems += extract_lean(os.path.join(folder, filename))
-    return theorems
+    return theorem
 
 def get_file_names_from_github(url):
     response = requests.get(url)  
@@ -95,12 +84,6 @@ def save_data(data, output_file):
         for entry in data:
             fout.write(json.dumps(entry) + "\n")
 
-def save_informal_data(data, output_file):
-    with open(output_file, "w", encoding="utf-8") as fout:
-        for entry in data:
-            entry['informal_statement']=entry['informal_prefix'].replace("/--","").replace("-/","").strip()
-            fout.write(json.dumps(entry) + "\n")
-
 def delete_file(file_path):
     # delete the folder and all its contents
     if os.path.exists(file_path):
@@ -111,7 +94,13 @@ def main():
     data_dir = Path(__file__).absolute().parent
     original_folder = str(data_dir / "lean4")
     download_dataset(original_folder)
-    theorems = extract_all_lean(original_folder)
+
+    #extract data
+    theorems = []
+    for filename in os.listdir(original_folder):
+        if filename.endswith(".lean"):
+            theorems.append(extract_theorem(os.path.join(original_folder, filename)))
+
     save_data(theorems, str(data_dir / "test.jsonl"))
     delete_file(original_folder)
 
