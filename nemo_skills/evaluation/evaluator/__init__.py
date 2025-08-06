@@ -14,9 +14,8 @@
 
 from typing import Any, Callable, Dict
 
-from nemo_skills.evaluation.evaluator.arena import eval_mtbench
 from nemo_skills.evaluation.evaluator.bfcl import eval_bfcl
-from nemo_skills.evaluation.evaluator.code import eval_evalplus, eval_livecodebench
+from nemo_skills.evaluation.evaluator.code import eval_evalplus, eval_livecodebench, eval_livecodebench_pro
 from nemo_skills.evaluation.evaluator.ifeval import eval_if
 from nemo_skills.evaluation.evaluator.math import eval_lean4_proof, eval_lean4_statement, eval_math
 from nemo_skills.evaluation.evaluator.mcq import eval_mcq
@@ -34,13 +33,13 @@ EVALUATOR_MAP = {
     'if': eval_if,
     'bfcl': eval_bfcl,
     'arena': dummy_eval,
-    'mt-bench': eval_mtbench,
     'answer_judgement': dummy_eval,
     'lean4-proof': eval_lean4_proof,
     'lean4-statement': eval_lean4_statement,
     'multichoice': eval_mcq,
     'ruler': eval_ruler,
     'livecodebench': eval_livecodebench,
+    'livecodebench_pro': eval_livecodebench_pro,
     'scicode': eval_scicode,
 }
 

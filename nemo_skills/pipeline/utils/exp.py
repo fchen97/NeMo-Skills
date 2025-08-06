@@ -29,7 +29,7 @@ from torchx.specs.api import AppState
 
 from nemo_skills.pipeline.utils.cluster import get_env_variables, get_tunnel, temporary_env_update, tunnel_hash
 from nemo_skills.pipeline.utils.mounts import get_mounts_from_config, get_unmounted_path
-from nemo_skills.pipeline.utils.packager import get_packager
+from nemo_skills.pipeline.utils.packager import get_packager, get_registered_external_repo
 from nemo_skills.pipeline.utils.server import get_free_port, get_server_command
 from nemo_skills.utils import get_logger_name, remove_handlers
 
@@ -389,7 +389,7 @@ def add_task(
     else:
         dependencies = None
 
-    if num_gpus is None and cluster_config['executor'] == "slurm":
+    if server_config is None and num_gpus is None and cluster_config['executor'] == "slurm":
         if not cluster_config.get('cpu_partition'):
             num_gpus = 1
 
@@ -516,9 +516,9 @@ def add_task(
         het_group += 1
         LOG.info("Sandbox command: %s", commands[-1])
 
-    if cluster_config["executor"] != "local":
+    if cluster_config["executor"] != "none":
         tunnel = get_tunnel(cluster_config)
-        if isinstance(tunnel, run.SSHTunnel) and reuse_code:
+        if reuse_code:
             reuse_code_exp = reuse_code_exp or REUSE_CODE_EXP.get(tunnel_hash(tunnel))
             if reuse_code_exp is not None:
                 if isinstance(reuse_code_exp, str):
@@ -539,12 +539,17 @@ def add_task(
                 else:
                     LOG.warning("Relevant packaging job not found for experiment %s", reuse_code_exp._title)
         # if current is not reused, we are refreshing the cache as there is a reason to believe it's outdated
-        elif isinstance(tunnel, run.SSHTunnel):
+        else:
             REUSE_CODE_EXP.pop(tunnel_hash(tunnel), None)
 
     # no mounting here, so assuming /nemo_run/code can be replaced with the current dir
     if cluster_config["executor"] == "none":
+        # replacing /nemo_run/code/nemo_skills with the installed location
+
         for idx in range(len(commands)):
+            commands[idx] = commands[idx].replace(
+                '/nemo_run/code/nemo_skills', str(get_registered_external_repo('nemo_skills').path)
+            )
             commands[idx] = commands[idx].replace('/nemo_run/code', './')
 
     if with_ray and cluster_config["executor"] == "slurm":
@@ -606,10 +611,9 @@ def run_exp(exp, cluster_config, sequential=False, dry_run=False):
 
         # caching the experiment code for reuse
         tunnel = get_tunnel(cluster_config)
-        if isinstance(tunnel, run.SSHTunnel):
-            ssh_hash = tunnel_hash(tunnel)
-            if ssh_hash not in REUSE_CODE_EXP:
-                REUSE_CODE_EXP[ssh_hash] = exp
+        cur_tunnel_hash = tunnel_hash(tunnel)
+        if cur_tunnel_hash not in REUSE_CODE_EXP:
+            REUSE_CODE_EXP[cur_tunnel_hash] = exp
 
 
 def get_exp(expname, cluster_config, _reuse_exp=None):

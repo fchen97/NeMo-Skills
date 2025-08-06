@@ -64,7 +64,7 @@ class ReadData(BaseProcessor):
             self.keys_to_keep.add(self.input_key)
             if self.output_key is not None:
                 self.keys_to_keep.add(self.output_key)
-                self.keys_to_keep.add("is_correct")
+                self.keys_to_keep.add("symbolic_correct")
                 self.keys_to_keep.add("judgement")
 
         if isinstance(self.input_files, str):
@@ -121,14 +121,14 @@ class ReadData(BaseProcessor):
 
             if self.output_key is not None and not self.add_unlabeled:
                 if not self.use_judgement:
-                    if "is_correct" not in line_dict:
-                        LOG.warning("Found incomplete generations (is_correct field is missing) - skipping")
+                    if "symbolic_correct" not in line_dict:
+                        LOG.warning("Found incomplete generations (symbolic_correct field is missing) - skipping")
                         continue
 
-                    if not self.add_correct and line_dict["is_correct"]:
+                    if not self.add_correct and line_dict["symbolic_correct"]:
                         continue
 
-                    if not self.add_incorrect and not line_dict["is_correct"]:
+                    if not self.add_incorrect and not line_dict["symbolic_correct"]:
                         continue
                 else:
                     if "judgement" not in line_dict:
@@ -368,7 +368,10 @@ class WriteFinalSftManifest(BaseProcessor):
                     generation = elem.pop(self.output_key)
                     if self.prompt:
                         output_sample["input"] = self.prompt.fill(input_dict=elem)
-                        output_sample["output"] = generation + self.prompt.config.template.assistant_end
+                        output_sample["output"] = generation
+                        # not adding end-of-turn for incomplete generations
+                        if output_sample.get("finish_reason", "stop") == "stop":
+                            output_sample["output"] += self.prompt.config.template.assistant_end
                     else:
                         output_sample["input"] = elem[self.input_key]
                         output_sample["output"] = generation
